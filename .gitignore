@@ -1,0 +1,20 @@
+# Sensitive configuration — never commit the real config
+config/config.php
+
+# Environment variables
+.env
+.env.local
+
+# Docker override files with secrets
+docker-compose.override.yml
+
+# Composer / vendor
+vendor/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\PC\\\\Downloads\\\\Zero Dependency tracker\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Select-Object FullName)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\PC\\\\Downloads\\\\Zero Dependency tracker' -Recurse -Force | Select-Object FullName | head -100\")",
+      "Read(//c/Users/PC/Downloads/Zero Dependency tracker/**)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\PC\\\\Downloads\\\\Zero Dependency tracker' -Directory\")",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\PC\\\\Downloads\\\\Zero Dependency tracker' ; Get-ChildItem -Path 'C:\\\\Users\\\\PC\\\\Downloads\\\\Zero Dependency tracker' -Force\")",
+      "Bash(powershell -Command \"Get-Location\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\database' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\admin' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\ajax' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\assets' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\assets\\\\css' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\assets\\\\js' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\admin\\\\clients' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\admin\\\\audits' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\admin\\\\questions' -Force\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'D:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\\\\admin\\\\notifications' -Force\")",
+      "Bash(php -r \"echo password_hash\\('ChangeMe@2024!', PASSWORD_BCRYPT\\);\")",
+      "PowerShell(php -r \"echo password_hash\\('ChangeMe@2024!', PASSWORD_BCRYPT\\);\")",
+      "Bash(python3 -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'ChangeMe@2024!', bcrypt.gensalt\\(12\\)\\).decode\\(\\)\\)\")",
+      "Bash(python -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'ChangeMe@2024!', bcrypt.gensalt\\(12\\)\\).decode\\(\\)\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\" -Recurse -Include \"*.php\", \"*.js\" -File)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\" -Recurse -Filter \"admin\" -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\" -Recurse -Include \"*.php\", \"*.env*\", \".gitignore\", \"Dockerfile\", \"docker-compose.yml\")",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Ankit Sukhwani\\\\GITHUB\\\\zerodependencytracker\" -File)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -v 'e\\($_\\\\|htmlspecialchars')",
+      "Bash(grep -rn '$_POST\\\\[\\\\|_GET\\\\[' 'd:/Ankit Sukhwani/GITHUB/zerodependencytracker/dashboard.php' 'd:/Ankit Sukhwani/GITHUB/zerodependencytracker/audit.php' 'd:/Ankit Sukhwani/GITHUB/zerodependencytracker/audit-report.php')",
+      "Bash(docker compose *)"
+    ]
+  }
+}
