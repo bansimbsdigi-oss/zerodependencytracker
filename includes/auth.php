@@ -85,10 +85,20 @@ function requireLogin() {
     if (empty($_SESSION['user_id'])) {
         redirect(APP_URL . '/login.php');
     }
-    // C3: Force new users to set their own password before accessing any other page.
-    if (!empty($_SESSION['must_change_password']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'set-password.php') {
-        redirect(APP_URL . '/set-password.php');
-    }
+}
+
+/**
+ * Returns a masked mobile number safe for display (e.g. +91 ••••••3210).
+ * Shows the first two digits (country code area) and the last four digits.
+ */
+function maskMobile($mobile) {
+    $digits = preg_replace('/\D/', '', $mobile);
+    $len    = strlen($digits);
+    if ($len <= 4) return '+' . str_repeat('•', $len);
+    $prefix  = substr($digits, 0, 2);
+    $suffix  = substr($digits, -4);
+    $bullets = str_repeat('•', max(0, $len - 6));
+    return '+' . $prefix . ' ' . $bullets . $suffix;
 }
 
 /**

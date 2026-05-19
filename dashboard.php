@@ -13,7 +13,7 @@ $stmt = $pdo->prepare("SELECT u.*, pa.area_name FROM users u LEFT JOIN problem_a
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 
-// Check for active audits that are not yet completed or in progress for this user
+// Active audit windows (not yet completed)
 $stmt = $pdo->prepare("
     SELECT aw.*, aus.id AS session_id, aus.status AS session_status
     FROM audit_windows aw
@@ -23,26 +23,80 @@ $stmt = $pdo->prepare("
 $stmt->execute([$userId]);
 $activeAudits = $stmt->fetchAll();
 
-// Fetch completed audit sessions for history
+// Completed audit sessions (for stats + progress bars)
 $stmt = $pdo->prepare("
-    SELECT aus.*, aw.audit_type, aw.audit_month, aw.audit_year, pa.area_name 
+    SELECT aus.*, aw.audit_type, aw.audit_month, aw.audit_year, pa.area_name,
+           au.name AS coach_name
     FROM audit_sessions aus
     JOIN audit_windows aw ON aus.audit_window_id = aw.id
     LEFT JOIN problem_areas pa ON aus.area_id = pa.id
+    LEFT JOIN admin_users au ON au.id = aus.admin_feedback_by
     WHERE aus.user_id = ? AND aus.status = 'completed'
     ORDER BY aus.completed_at DESC
 ");
 $stmt->execute([$userId]);
 $history = $stmt->fetchAll();
 
-// Group history by area
-$historyByArea = [];
-foreach ($history as $h) {
-    $areaName = $h->area_name ?? 'General';
-    if (!isset($historyByArea[$areaName])) {
-        $historyByArea[$areaName] = [];
+// All sessions (for history table — includes in-progress)
+$stmt = $pdo->prepare("
+    SELECT aus.*, aw.audit_type, aw.audit_month, aw.audit_year, pa.area_name,
+           au.name AS coach_name
+    FROM audit_sessions aus
+    JOIN audit_windows aw ON aus.audit_window_id = aw.id
+    LEFT JOIN problem_areas pa ON aus.area_id = pa.id
+    LEFT JOIN admin_users au ON au.id = aus.admin_feedback_by
+    WHERE aus.user_id = ?
+    ORDER BY aus.started_at DESC
+");
+$stmt->execute([$userId]);
+$allSessions = $stmt->fetchAll();
+
+// Stats
+$totalAudits   = count($history);
+$latestScore   = 0;
+$improvement   = null;
+if ($totalAudits > 0) {
+    $latestScore = $history[0]->max_score > 0 ? round(($history[0]->total_score / $history[0]->max_score) * 100) : 0;
+    if ($totalAudits > 1) {
+        $oldest     = $history[$totalAudits - 1];
+        $oldestPct  = $oldest->max_score > 0 ? round(($oldest->total_score / $oldest->max_score) * 100) : 0;
+        $improvement = $latestScore - $oldestPct;
     }
-    $historyByArea[$areaName][] = $h;
+}
+
+// Group last 3 audits per area for progress cards
+$areaAuditRows = [];
+foreach ($history as $h) {
+    $area = $h->area_name ?? 'General';
+    if (!isset($areaAuditRows[$area])) $areaAuditRows[$area] = [];
+    if (count($areaAuditRows[$area]) < 3) {
+        $areaAuditRows[$area][] = $h;
+    }
+}
+
+// Section-wise scores for all completed sessions
+$sessionIds = array_column($history, 'id');
+$sectionScores = [];
+if (!empty($sessionIds)) {
+    $placeholders = implode(',', array_fill(0, count($sessionIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT ar.audit_session_id,
+               qs.section_name,
+               qs.display_order,
+               SUM(ar.points_earned)       AS earned,
+               SUM(ar.max_question_points) AS max_pts
+        FROM audit_responses ar
+        JOIN questions q  ON q.sno = ar.question_id
+        JOIN question_sections qs ON qs.id = q.section_id
+        WHERE ar.audit_session_id IN ($placeholders)
+          AND q.section_id IS NOT NULL
+        GROUP BY ar.audit_session_id, qs.id
+        ORDER BY ar.audit_session_id, qs.display_order, qs.section_name
+    ");
+    $stmt->execute($sessionIds);
+    foreach ($stmt->fetchAll() as $row) {
+        $sectionScores[$row->audit_session_id][] = $row;
+    }
 }
 
 ?>
@@ -55,126 +109,323 @@ foreach ($history as $h) {
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css">
   <meta name="csrf-token" content="<?= e(getCsrf()) ?>">
   <style>
-    /* Tutorial Overlay CSS */
+    /* ── Dashboard layout ───────────────────────────────────────── */
+    .dash-welcome { margin: 1.5rem 0 1.25rem; }
+    .dash-welcome h1 { margin: 0 0 0.2rem; font-size: 1.5rem; }
+    .dash-welcome p  { margin: 0; font-size: 0.92rem; color: var(--gray-500); }
+
+    /* Stats row */
+    .dash-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+    .dash-stat {
+      background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-md);
+      padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .dash-stat-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); }
+    .dash-stat-value { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--gray-900); }
+    .dash-stat-sub   { font-size: 0.78rem; color: var(--gray-400); margin-top: 0.1rem; }
+    .dash-stat.stat-green .dash-stat-value { color: var(--success); }
+    .dash-stat.stat-teal  .dash-stat-value { color: var(--primary); }
+    .dash-stat.stat-up    .dash-stat-value { color: #7c3aed; }
+
+    /* Active audit CTA */
+    .audit-cta { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; padding: 1.1rem 1.25rem; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.875rem; }
+    .audit-cta h3 { color: #fff; margin: 0 0 0.15rem; font-size: 0.97rem; }
+    .audit-cta p  { opacity: 0.85; margin: 0; font-size: 0.83rem; }
+    .audit-cta-btn { background: #fff; color: var(--primary); padding: 0.45rem 1.1rem; border-radius: var(--radius-full); font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+    .audit-cta-section { margin-bottom: 1.25rem; }
+    .audit-cta-section h2 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); margin-bottom: 0.6rem; }
+
+    /* Graduation banner */
+    .grad-banner { background: linear-gradient(135deg, var(--success), #047857); color: #fff; padding: 1.25rem 1.5rem; border-radius: var(--radius-md); margin-bottom: 1.25rem; }
+    .grad-banner h2 { color: #fff; margin: 0 0 0.25rem; font-size: 1.1rem; }
+    .grad-banner p  { color: rgba(255,255,255,0.88); margin: 0; font-size: 0.88rem; }
+
+    /* Progress section */
+    .section-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); margin-bottom: 0.75rem; }
+    .progress-card { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+    .progress-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.1rem; }
+    .progress-card-title { font-size: 1rem; font-weight: 700; color: var(--gray-800); }
+    .progress-card-badge { font-size: 0.72rem; font-weight: 600; color: var(--gray-500); background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-full); padding: 0.2rem 0.65rem; }
+    .progress-row { margin-bottom: 0.85rem; }
+    .progress-row:last-child { margin-bottom: 0; }
+    .progress-row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.3rem; }
+    .progress-row-name { font-size: 0.83rem; font-weight: 500; color: var(--gray-700); }
+    .progress-row-pct  { font-size: 0.83rem; font-weight: 700; color: var(--gray-800); }
+    .progress-track { background: var(--gray-100); border-radius: var(--radius-full); height: 8px; overflow: hidden; }
+    .progress-fill  { height: 100%; border-radius: var(--radius-full); background: #374151; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+    .progress-fill.fill-green { background: #16a34a; }
+    .progress-fill.fill-warn  { background: #ca8a04; }
+    .progress-fill.fill-red   { background: #b91c1c; }
+    .progress-row-pct.pct-red { color: #b91c1c; }
+
+    /* Audit history table */
+    .history-card { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 1.5rem; }
+    .history-card-head { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-100); display: flex; justify-content: space-between; align-items: center; }
+    .history-card-head span { font-size: 1rem; font-weight: 700; color: var(--gray-800); }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th { text-align: left; padding: 0.65rem 1.25rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+    .history-table td { padding: 0.85rem 1.25rem; font-size: 0.88rem; color: var(--gray-700); border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--gray-50); }
+    .score-pill { display: inline-block; padding: 0.2rem 0.65rem; border-radius: var(--radius-full); font-size: 0.8rem; font-weight: 700; }
+    .score-high  { background: #ecfdf5; color: #065f46; }
+    .score-mid   { background: #f0f9ff; color: #0369a1; }
+    .score-low   { background: #fef2f2; color: #991b1b; }
+    .status-badge { display: inline-block; padding: 0.2rem 0.65rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 600; background: #ecfdf5; color: #065f46; }
+    .status-badge.grad { background: #fef9c3; color: #854d0e; }
+    .report-link { font-size: 0.8rem; color: var(--primary); font-weight: 600; white-space: nowrap; }
+
+    /* Section score breakdown */
+    .section-breakdown { background: var(--gray-50); border-top: 1px solid var(--gray-100); display: none; }
+    .section-breakdown.open { display: table-row; }
+    .section-breakdown td { padding: 0.75rem 1.25rem 1rem; }
+    .section-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 1.25rem; }
+    .section-item { }
+    .section-item-head { display: flex; justify-content: space-between; font-size: 0.76rem; font-weight: 600; color: var(--gray-600); margin-bottom: 0.25rem; }
+    .section-item-pct  { color: var(--primary); }
+    .section-track { background: var(--gray-200); border-radius: var(--radius-full); height: 5px; overflow: hidden; }
+    .section-fill  { height: 100%; border-radius: var(--radius-full); background: var(--primary); }
+    .section-fill.s-green { background: var(--success); }
+    .section-fill.s-warn  { background: var(--warning); }
+    .section-fill.s-red   { background: var(--danger); }
+    .expand-btn { background: none; border: none; cursor: pointer; color: var(--primary); font-size: 0.78rem; font-weight: 600; padding: 0; white-space: nowrap; display: flex; align-items: center; gap: 0.3rem; }
+    .expand-btn svg { transition: transform 0.2s; }
+    .expand-btn.open svg { transform: rotate(180deg); }
+
+    @media (max-width: 600px) {
+      .section-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Coach feedback bubble */
+    .coach-feedback-row { display: none; }
+    .coach-feedback-row.open { display: table-row; }
+    .coach-feedback-row td { background: #eef2ff; padding: .75rem 1.25rem 1rem; border-top: 1px solid #c7d2fe; }
+    .coach-feedback-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #4f46e5; margin-bottom: .35rem; }
+    .coach-feedback-text  { font-size: .88rem; color: #1e1b4b; line-height: 1.55; white-space: pre-wrap; }
+    .coach-feedback-meta  { font-size: .73rem; color: #818cf8; margin-top: .35rem; }
+    .has-feedback-dot { width: 7px; height: 7px; border-radius: 50%; background: #4f46e5; display: inline-block; margin-left: .35rem; vertical-align: middle; flex-shrink: 0; }
+
+    /* Tutorial overlay */
     .tutorial-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-    .tutorial-modal { background: #fff; padding: 2rem; border-radius: var(--radius-md); max-width: 500px; text-align: center; }
-    
-    .grad-banner { background: linear-gradient(135deg, var(--success), #047857); color: #fff; padding: 2rem; border-radius: var(--radius-md); margin-bottom: 2rem; text-align: center; }
-    
-    .audit-cta { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; padding: 1.5rem 2rem; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-    .audit-cta h3 { color: #fff; margin-bottom: 0.25rem; }
-    .audit-cta-btn { background: #fff; color: var(--primary); padding: 0.5rem 1.5rem; border-radius: var(--radius-full); font-weight: bold; text-decoration: none; }
-    
-    details.history-details summary::-webkit-details-marker { display: none; }
-    details.history-details[open] summary span:last-child { transform: rotate(180deg); }
+    .tutorial-modal { background: #fff; padding: 2rem; border-radius: var(--radius-md); max-width: 500px; width: 100%; text-align: center; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .dash-stats { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+      .dash-stat  { padding: 0.875rem 0.75rem; }
+      .dash-stat-value { font-size: 1.6rem; }
+
+      .audit-cta  { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+      .audit-cta-btn { align-self: stretch; text-align: center; }
+
+      .history-table th:nth-child(2),
+      .history-table td:nth-child(2) { display: none; }
+
+      .history-table th,
+      .history-table td { padding: 0.75rem 0.875rem; }
+    }
+
+    @media (max-width: 400px) {
+      .dash-stat-label { font-size: 0.7rem; }
+      .dash-stat-value { font-size: 1.35rem; }
+    }
   </style>
 </head>
 <body>
 
   <header class="site-header">
     <div class="container">
-      <a href="<?= APP_URL ?>" class="brand">&#x2665; <?= APP_NAME ?></a>
+      <a href="<?= APP_URL ?>/dashboard.php" class="brand">&#x2665; Zero Dependency Tracker</a>
       <div class="nav-links">
         <a href="<?= APP_URL ?>/dashboard.php" class="active">Dashboard</a>
-        <a href="<?= APP_URL ?>/profile.php">Profile</a>
-        <form method="POST" action="<?= APP_URL ?>/logout.php" style="display:inline;margin-left:1rem;">
-          <input type="hidden" name="csrf_token" value="<?= e(getCsrf()) ?>">
-          <button type="submit" class="btn btn-primary" style="padding:0.4rem 1rem;border:0;cursor:pointer;">Logout</button>
-        </form>
+        <div class="nav-avatar-wrap">
+          <button class="nav-avatar" id="navAvatarBtn" aria-label="Account menu" aria-expanded="false">
+            <?= e(strtoupper(substr($user->name, 0, 1))) ?>
+          </button>
+          <div class="nav-dropdown" id="navDropdown">
+            <a href="<?= APP_URL ?>/profile.php">Profile</a>
+            <hr>
+            <form method="POST" action="<?= APP_URL ?>/logout.php">
+              <input type="hidden" name="csrf_token" value="<?= e(getCsrf()) ?>">
+              <button type="submit">Logout</button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="container">
-    <h1 style="margin-top: 1rem;">Welcome, <?= e(explode(' ', $user->name)[0]) ?></h1>
-    <p class="text-muted" style="margin-bottom: 2rem;">Track your progress and complete your scheduled audits.</p>
 
-    <?php if ($user->is_graduated == 1): ?>
+    <div class="dash-welcome">
+      <h1>Welcome back, <?= e(explode(' ', $user->name)[0]) ?></h1>
+      <p>Track your physiotherapy progress and complete your scheduled audits.</p>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="dash-stats">
+      <div class="dash-stat stat-teal">
+        <span class="dash-stat-label">Audits Done</span>
+        <span class="dash-stat-value"><?= $totalAudits ?></span>
+        <span class="dash-stat-sub">total completed</span>
+      </div>
+      <div class="dash-stat stat-green">
+        <span class="dash-stat-label">Latest Score</span>
+        <span class="dash-stat-value"><?= $totalAudits > 0 ? $latestScore . '%' : '—' ?></span>
+        <span class="dash-stat-sub"><?= $totalAudits > 0 ? date('M Y', strtotime($history[0]->completed_at)) : 'no audits yet' ?></span>
+      </div>
+      <div class="dash-stat stat-up">
+        <span class="dash-stat-label">Improvement</span>
+        <span class="dash-stat-value"><?php
+          if ($improvement === null) echo '—';
+          elseif ($improvement > 0) echo '+' . $improvement . '%';
+          elseif ($improvement < 0) echo $improvement . '%';
+          else echo '0%';
+        ?></span>
+        <span class="dash-stat-sub"><?= $totalAudits > 1 ? 'since first audit' : 'need 2+ audits' ?></span>
+      </div>
+    </div>
+
+    <?php if ($user->is_graduated): ?>
       <div class="grad-banner">
-        <h2 style="color: #fff;">🎉 Congratulations!</h2>
-        <p>You have hit 100% performance and graduated from your primary recovery program.</p>
+        <h2>Congratulations!</h2>
+        <p>You have achieved 100% performance and graduated from your primary recovery program.</p>
       </div>
     <?php endif; ?>
 
     <?php if (!$user->is_graduated && !empty($activeAudits)): ?>
-      <h2 style="margin-bottom: 1rem;">Action Required</h2>
-      <?php foreach ($activeAudits as $audit): ?>
-        <div class="audit-cta">
-          <div>
-            <h3><?= ucwords(str_replace('_', ' ', $audit->audit_type)) ?> Audit</h3>
-            <p style="opacity: 0.9;">Available for Month <?= e($audit->audit_month) ?>, <?= e($audit->audit_year) ?></p>
+      <div class="audit-cta-section">
+        <h2>Action Required</h2>
+        <?php foreach ($activeAudits as $audit): ?>
+          <div class="audit-cta">
+            <div>
+              <h3><?= ucwords(str_replace('_', ' ', $audit->audit_type)) ?> Audit</h3>
+              <p>Month <?= e($audit->audit_month) ?>, <?= e($audit->audit_year) ?></p>
+            </div>
+            <a href="<?= APP_URL ?>/audit.php?window_id=<?= $audit->id ?>" class="audit-cta-btn">
+              <?= $audit->session_status === 'in_progress' ? 'Continue' : 'Start' ?> &rarr;
+            </a>
           </div>
-          <a href="<?= APP_URL ?>/audit.php?window_id=<?= $audit->id ?>" class="audit-cta-btn"><?= $audit->session_status === 'in_progress' ? 'Continue' : 'Start' ?> Audit &rarr;</a>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if (!empty($areaAuditRows)): ?>
+      <?php foreach ($areaAuditRows as $areaName => $audits):
+        $auditCount = count($audits);
+        $badgeLabel = 'Last ' . $auditCount . ' audit' . ($auditCount !== 1 ? 's' : '');
+      ?>
+      <div class="progress-card">
+        <div class="progress-card-head">
+          <span class="progress-card-title"><?= e($areaName) ?> &mdash; Progress</span>
+          <span class="progress-card-badge"><?= $badgeLabel ?></span>
         </div>
+        <?php foreach ($audits as $h):
+          $pct        = $h->max_score > 0 ? round(($h->total_score / $h->max_score) * 100) : 0;
+          $fillClass  = $pct >= 75 ? 'fill-green' : ($pct >= 50 ? '' : ($pct >= 30 ? 'fill-warn' : 'fill-red'));
+          $pctClass   = $pct < 40 ? 'pct-red' : '';
+          $typeLabel  = ucwords(str_replace('_', '-', $h->audit_type));
+          $monthYear  = date('M Y', mktime(0, 0, 0, (int)$h->audit_month, 1, (int)$h->audit_year));
+          $doneDate   = $h->completed_at ? date('M j', strtotime($h->completed_at)) : '';
+        ?>
+          <div class="progress-row">
+            <div class="progress-row-head">
+              <span class="progress-row-name"><?= e($typeLabel) ?> <?= e($monthYear) ?><?= $doneDate ? ' &mdash; ' . e($doneDate) : '' ?></span>
+              <span class="progress-row-pct <?= $pctClass ?>"><?= $pct ?>%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill <?= $fillClass ?>" style="width:<?= $pct ?>%;"></div>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
       <?php endforeach; ?>
     <?php endif; ?>
 
-    <h2 style="margin-top: 3rem; margin-bottom: 1.5rem;">Audit History</h2>
-    <?php if (empty($historyByArea)): ?>
-      <p class="text-muted">You haven't completed any audits yet.</p>
+    <!-- Audit History Table -->
+    <?php if (empty($allSessions)): ?>
+      <div class="progress-card" style="text-align:center;color:var(--gray-400);padding:2rem 1.25rem;">
+        No audits yet. Start your first audit above.
+      </div>
     <?php else: ?>
-      <?php foreach ($historyByArea as $area => $records): ?>
-        <div class="card" style="margin-bottom: 1rem;">
-          <details class="history-details">
-            <summary class="card-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
-              <span><?= e($area) ?> Progress</span>
-              <span class="text-muted" style="font-size: 0.9rem;">(<?= count($records) ?> Audits) ▼</span>
-            </summary>
-            <div class="card-body" style="border-top: 1px solid var(--gray-200);">
-              <table style="width:100%; border-collapse: collapse;">
-                <?php 
-                  for ($i = 0; $i < count($records); $i++) {
-                    $record = $records[$i];
-                    $percentage = $record->max_score > 0 ? round(($record->total_score / $record->max_score) * 100) : 0;
-                    
-                    // Calculate improvement vs previous (which is the next item in the array since it's sorted DESC)
-                    $diffStr = '';
-                    if (isset($records[$i + 1])) {
-                        $prevRecord = $records[$i + 1];
-                        $prevPercentage = $prevRecord->max_score > 0 ? round(($prevRecord->total_score / $prevRecord->max_score) * 100) : 0;
-                        $diff = $percentage - $prevPercentage;
-                        if ($diff > 0) {
-                            $diffStr = "<span style='color:var(--success); font-size: 0.9rem; font-weight: bold;'>+$diff%</span>";
-                        } elseif ($diff < 0) {
-                            $diffStr = "<span style='color:var(--danger); font-size: 0.9rem; font-weight: bold;'>$diff%</span>";
-                        } else {
-                            $diffStr = "<span style='color:var(--gray-500); font-size: 0.9rem;'>No change</span>";
-                        }
-                    } else {
-                        $diffStr = "<span style='color:var(--gray-500); font-size: 0.9rem;'>First audit</span>";
-                    }
-                ?>
-                  <tr style="border-bottom: 1px solid var(--gray-200);">
-                    <td style="padding: 1rem 0;">
-                      <strong><?= ucwords(str_replace('_', ' ', $record->audit_type)) ?></strong> (<?= e($record->audit_month) ?>/<?= e($record->audit_year) ?>)<br>
-                      <span class="text-muted" style="font-size:0.85rem;"><?= date('M j, Y', strtotime($record->completed_at)) ?></span>
-                    </td>
-                    <td style="padding: 1rem 0; text-align: center; vertical-align: middle;">
-                      <?= $diffStr ?>
-                    </td>
-                    <td style="padding: 1rem 0; text-align: right;">
-                      <div style="font-size: 1.25rem; font-weight: 700; color: <?= $percentage >= 80 ? 'var(--success)' : 'var(--primary)' ?>;">
-                        <?= $percentage ?>%
-                      </div>
-                      <a href="<?= APP_URL ?>/audit-report.php?session_id=<?= $record->id ?>" style="font-size:0.85rem;">View Report</a>
-                    </td>
-                  </tr>
-                <?php } ?>
-              </table>
-            </div>
-          </details>
-        </div>
-      <?php endforeach; ?>
+      <div class="history-card">
+        <div class="history-card-head"><span>Audit History</span></div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Window</th>
+              <th>Area</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($allSessions as $h):
+              $typeName    = ucwords(str_replace('_', '-', $h->audit_type));
+              $monthYear   = date('M Y', mktime(0, 0, 0, (int)$h->audit_month, 1, (int)$h->audit_year));
+              $hasFeedback = !empty($h->admin_feedback);
+              $fbRowId     = 'fb-' . $h->id;
+              $isCompleted = $h->status === 'completed';
+              $isPerfect   = $h->is_perfect;
+              $scoreLabel  = $h->total_score . '/' . $h->max_score;
+            ?>
+            <tr>
+              <td>
+                <strong><?= e($typeName) ?> <?= e($monthYear) ?></strong>
+                <?php if ($hasFeedback): ?><span class="has-feedback-dot" title="Coach feedback available"></span><?php endif; ?>
+              </td>
+              <td><?= e($h->area_name ?? 'General') ?></td>
+              <td><span style="font-size:0.88rem;font-weight:600;color:var(--gray-800);"><?= e($scoreLabel) ?></span></td>
+              <td>
+                <?php if ($isPerfect): ?>
+                  <span class="status-badge grad">Perfect</span>
+                <?php elseif ($isCompleted): ?>
+                  <span class="status-badge">Completed</span>
+                <?php else: ?>
+                  <span class="status-badge" style="background:#fef9c3;color:#854d0e;">In progress</span>
+                <?php endif; ?>
+              </td>
+              <td style="text-align:right;">
+                <?php if ($hasFeedback): ?>
+                  <button class="expand-btn" data-target="<?= $fbRowId ?>" style="color:#4f46e5;justify-content:flex-end;">
+                    Coach Notes
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                <?php endif; ?>
+                <?php if ($isCompleted): ?>
+                  <a href="<?= APP_URL ?>/audit-report.php?session_id=<?= $h->id ?>" class="report-link" style="display:block;margin-top:0.2rem;">Report</a>
+                <?php endif; ?>
+              </td>
+            </tr>
+            <?php if ($hasFeedback): ?>
+            <tr class="coach-feedback-row" id="<?= $fbRowId ?>">
+              <td colspan="5">
+                <div class="coach-feedback-label">Coach Feedback</div>
+                <div class="coach-feedback-text"><?= e($h->admin_feedback) ?></div>
+                <div class="coach-feedback-meta">
+                  — <?= e($h->coach_name ?? 'Your Coach') ?>
+                  <?php if ($h->admin_feedback_at): ?> &middot; <?= e(date('d M Y', strtotime($h->admin_feedback_at))) ?><?php endif; ?>
+                </div>
+              </td>
+            </tr>
+            <?php endif; ?>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
     <?php endif; ?>
+
   </main>
 
   <?php if ($user->tutorial_done == 0 && empty($history)): ?>
     <div id="tutorial-overlay" class="tutorial-overlay">
       <div class="tutorial-modal">
-        <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">👋</div>
-        <h2 style="margin-bottom: 1rem;">Welcome to your Dashboard</h2>
-        <p style="color: var(--gray-600); margin-bottom: 2rem;">
-          This is where you will track your physiotherapy progress. Your coach will open audits (questionnaires) at the middle and end of every month. Complete them to see your performance chart rise!
+        <div style="font-size:2.5rem;color:var(--primary);margin-bottom:1rem;">&#x2665;</div>
+        <h2 style="margin-bottom:1rem;">Welcome to your Dashboard</h2>
+        <p style="color:var(--gray-600);margin-bottom:2rem;font-size:0.95rem;">
+          This is where you will track your physiotherapy progress. Your coach will open audits at the middle and end of every month. Complete them to watch your recovery chart rise.
         </p>
         <button id="btn-tutorial-done" class="btn btn-primary btn-block">Got it, let's start</button>
       </div>
@@ -183,5 +434,16 @@ foreach ($history as $h) {
 
   <script>window.APP_URL = <?= json_encode(APP_URL) ?>;</script>
   <script src="<?= APP_URL ?>/assets/js/main.js"></script>
+  <script>
+    document.querySelectorAll('.expand-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        var open = target.classList.toggle('open');
+        btn.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open);
+      });
+    });
+  </script>
 </body>
 </html>

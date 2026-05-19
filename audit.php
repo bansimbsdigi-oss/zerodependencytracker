@@ -17,6 +17,11 @@ $stmt->execute([$windowId]);
 $window = $stmt->fetch();
 if (!$window) redirect(APP_URL . '/dashboard.php');
 
+// Enforce date range
+$today = date('Y-m-d');
+if ($window->start_date && $today < $window->start_date) redirect(APP_URL . '/dashboard.php');
+if ($window->end_date   && $today > $window->end_date)   redirect(APP_URL . '/dashboard.php');
+
 $user = getCurrentUser();
 if ($user && (int)$user->is_graduated === 1) {
     redirect(APP_URL . '/dashboard.php');
@@ -50,14 +55,27 @@ if (!$session) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT q.*
+    SELECT q.*, qs.section_name, qs.display_order AS section_order
     FROM questions q
     JOIN question_area_map qam ON qam.question_id = q.sno
+    LEFT JOIN question_sections qs ON qs.id = q.section_id
     WHERE qam.area_id = ? AND q.flag = 1
-    ORDER BY q.sno ASC
+    ORDER BY qs.display_order ASC, qs.id ASC, q.sno ASC
 ");
 $stmt->execute([$userAreaId]);
 $questions = $stmt->fetchAll();
+
+// Assign sequential section numbers for display
+$sectionCounter = 0;
+$lastSectionName = null;
+foreach ($questions as $q) {
+    $sName = $q->section_name ?? null;
+    if ($sName !== $lastSectionName) {
+        $sectionCounter++;
+        $lastSectionName = $sName;
+    }
+    $q->_sectionNum = $sectionCounter;
+}
 
 $totalQuestions = count($questions);
 $auditLabel = ucwords(str_replace('_', ' ', $window->audit_type)) . ' Audit - ' . date('F Y', mktime(0, 0, 0, (int)$window->audit_month, 1, (int)$window->audit_year));
@@ -154,9 +172,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $isPerfect = ($maxScore > 0 && $totalScore === $maxScore) ? 1 : 0;
+        $pct = $maxScore > 0 ? round($totalScore / $maxScore * 100) : 0;
 
         $pdo->prepare("UPDATE audit_sessions SET total_score = ?, max_score = ?, is_perfect = ?, status = 'completed', completed_at = NOW() WHERE id = ?")
             ->execute([$totalScore, $maxScore, $isPerfect, $sessionId]);
+
+        // Notify admin: audit completed
+        $pdo->prepare("INSERT INTO admin_notifications (type, message, related_user_id, related_audit_session_id) VALUES ('audit_completed', ?, ?, ?)")
+            ->execute([$user->name . ' completed an audit — score: ' . $totalScore . '/' . $maxScore . ' (' . $pct . '%)', $userId, $sessionId]);
 
         if ($isPerfect) {
             $stmt = $pdo->prepare("SELECT is_graduated FROM users WHERE id = ?");
@@ -209,11 +232,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .audit-progress-percent { color: #0f8f83; text-align: right; }
     .audit-main { max-width: 790px; margin: 2.5rem auto 4rem; padding: 0 1rem; }
     .audit-card { background: #fff; border: 1px solid #eef2f7; border-radius: 22px; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08); overflow: hidden; display: none; }
-    .audit-card.is-active, .audit-card.is-preview { display: block; }
-    .audit-card.is-preview { margin-top: 1.75rem; opacity: 0.96; }
+    .audit-card.is-active { display: block; }
     .audit-card-head { padding: 2rem 2.15rem 1.25rem; border-bottom: 1px solid #eef2f7; }
     .audit-kicker { color: #0f8f83; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.7rem; }
-    .audit-card.is-preview .audit-kicker { color: #d97706; }
     .audit-question-title { font-size: 1.35rem; line-height: 1.4; color: #020617; margin: 0 0 0.6rem; }
     .audit-type-badge { display: flex; align-items: center; gap: 0.65rem; margin-top: 0.4rem; }
     .audit-type-pill { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.75rem; border-radius: 999px; background: #f0fdfa; color: #0f766e; font-size: 0.8rem; font-weight: 800; border: 1px solid #99f6e4; }
@@ -235,16 +256,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .audit-action.secondary { background: #f8fafc; color: #334155; }
     .audit-action.primary { background: #0f8f83; color: #fff; border-color: #0f8f83; }
     .audit-error { display: none; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-weight: 700; }
+    .audit-section-badge { display: inline-flex; align-items: center; padding: 0.3rem 0.9rem; border-radius: 999px; background: #0f8f83; color: #fff; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.75rem; }
     @media (max-width: 760px) {
-      .audit-topbar-inner { height: auto; padding: 0.9rem 1rem; gap: 0.75rem; align-items: flex-start; flex-direction: column; }
-      .audit-nav { flex-wrap: wrap; }
+      .audit-topbar-inner { height: auto; padding: 0.9rem 1rem; gap: 0.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+      .audit-brand { font-size: 1.05rem; }
+      .audit-brand-mark { width: 34px; height: 34px; font-size: 0.9rem; }
+      .audit-nav { flex-wrap: wrap; gap: 0.4rem; }
+      .audit-nav a { padding: 0 0.65rem; font-size: 0.85rem; min-height: 32px; }
       .audit-progress { grid-template-columns: 1fr 48px; }
       .audit-progress-label { grid-column: 1 / -1; }
-      .audit-main { margin-top: 1.5rem; }
-      .audit-card-head, .audit-card-body { padding: 1.4rem; }
-      .audit-question-title { font-size: 1.15rem; }
-      .choice-text { font-size: 1rem; }
-      .rating-grid.audit-rating .rating-btn { width: 56px; height: 56px; }
+      .audit-main { margin-top: 1.25rem; }
+      .audit-card-head, .audit-card-body { padding: 1.25rem; }
+      .audit-question-title { font-size: 1.1rem; }
+      .choice-text { font-size: 0.95rem; }
+      .choice-option { min-height: 54px; padding: 0.65rem 0.9rem; }
+      .audit-action { min-width: 100px; min-height: 44px; font-size: 0.9rem; }
+      .rating-grid.audit-rating .rating-btn { width: 50px; height: 50px; font-size: 1rem; }
+    }
+    @media (max-width: 400px) {
+      .audit-topbar-inner { padding: 0.65rem 0.75rem; }
+      .audit-brand span:last-child { display: none; }
+      .audit-card-head, .audit-card-body { padding: 1rem; }
+      .audit-actions { gap: 0.5rem; }
+      .audit-action { min-width: 80px; font-size: 0.82rem; padding: 0 0.5rem; }
+      .rating-grid.audit-rating .rating-btn { width: 42px; height: 42px; font-size: 0.9rem; }
     }
   </style>
 </head>
@@ -254,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="audit-topbar-inner">
         <a href="<?= APP_URL ?>/dashboard.php" class="audit-brand">
           <span class="audit-brand-mark">&#x2665;</span>
-          <span>PhysioTrack</span>
+          <span>Zero Dependency Tracker</span>
         </a>
         <nav class="audit-nav" aria-label="Primary">
           <a href="<?= APP_URL ?>/dashboard.php" class="active">Dashboard</a>
@@ -305,10 +340,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   'text'         => ['label' => 'Long Text',      'hint' => 'Type your answer below',         'icon' => '✎'],
               ][$q->question_type] ?? ['label' => 'Answer', 'hint' => '', 'icon' => '?'];
               $typeLabel = $typeInfo['label'];
-              $kicker = $questionNumber === 1 ? 'Question ' . $questionNumber . ' of ' . $totalQuestions . ' — ' . $auditLabel : 'Preview — ' . $typeInfo['label'];
+              $sectionPrefix = $q->section_name ? 'Section ' . $q->_sectionNum . ' — ' . strtoupper($q->section_name) . ' · ' : '';
+              $kicker = $index === 0 ? $sectionPrefix . 'Question ' . $questionNumber . ' of ' . $totalQuestions . ' — ' . $auditLabel : 'Preview — ' . $typeInfo['label'];
             ?>
-            <section class="audit-card <?= $index === 0 ? 'is-active' : ($index === 1 ? 'is-preview' : '') ?>" data-question-card data-index="<?= $index ?>" data-question-id="<?= (int)$q->sno ?>" data-type="<?= e($q->question_type) ?>">
+            <section class="audit-card <?= $index === 0 ? 'is-active' : '' ?>" data-question-card data-index="<?= $index ?>" data-question-id="<?= (int)$q->sno ?>" data-type="<?= e($q->question_type) ?>" data-section-name="<?= e($q->section_name ?? '') ?>" data-section-num="<?= (int)$q->_sectionNum ?>">
               <div class="audit-card-head">
+                <?php if ($q->section_name): ?>
+                  <div class="audit-section-badge">Section <?= (int)$q->_sectionNum ?> &mdash; <?= e(strtoupper($q->section_name)) ?></div>
+                <?php endif; ?>
                 <div class="audit-kicker" data-kicker><?= e($kicker) ?></div>
                 <h1 class="audit-question-title"><?= e($q->question_text) ?></h1>
                 <div class="audit-type-badge">
@@ -375,6 +414,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 
   <script>
+    // Rating button selection
+    document.querySelectorAll('.rating-grid').forEach(function(group) {
+      group.querySelectorAll('.rating-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          group.querySelectorAll('.rating-btn').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          var radio = group.querySelector('input[type="radio"][value="' + btn.dataset.value + '"]');
+          if (radio) radio.checked = true;
+        });
+      });
+    });
+
     const cards = Array.from(document.querySelectorAll('[data-question-card]'));
     const form = document.getElementById('audit-form');
     const errorBox = document.getElementById('audit-error');
@@ -401,12 +452,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       const pct = total ? Math.round(((currentIndex + 1) / total) * 100) : 0;
       cards.forEach((card, index) => {
         card.classList.toggle('is-active', index === currentIndex);
-        card.classList.toggle('is-preview', index === currentIndex + 1);
         const kicker = card.querySelector('[data-kicker]');
         if (kicker) {
-          kicker.textContent = index === currentIndex
-            ? `Question ${index + 1} of ${total} - <?= e($auditLabel) ?>`
-            : `Preview - ${card.dataset.type.replace('_', ' ')} question`;
+          if (index === currentIndex) {
+            const sName = card.dataset.sectionName;
+            const sNum  = card.dataset.sectionNum;
+            const sectionPart = sName ? `Section ${sNum} — ${sName.toUpperCase()} · ` : '';
+            kicker.textContent = `${sectionPart}Question ${index + 1} of ${total} — <?= e($auditLabel) ?>`;
+          } else {
+            kicker.textContent = `Preview — ${card.dataset.type.replace('_', ' ')} question`;
+          }
         }
         const prev = card.querySelector('[data-prev]');
         const next = card.querySelector('[data-next]');

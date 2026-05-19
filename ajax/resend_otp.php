@@ -47,8 +47,7 @@ if ($last) {
 $otp  = generateOTP();
 saveOTP($userId, $otp);
 
-$msg  = "Your " . APP_NAME . " verification OTP is: *{$otp}*\n\nValid for " . OTP_EXPIRY_MINUTES . " minutes.";
-$sent = sendWhatsAppMessage($mobile, $msg);
+$sent = sendWhatsAppOTP($mobile, $otp);
 
 if ($sent) {
     echo json_encode([

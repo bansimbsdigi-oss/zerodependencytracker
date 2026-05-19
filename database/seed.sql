@@ -4,6 +4,15 @@ INSERT IGNORE INTO problem_areas (id, area_name, is_active, display_order) VALUE
 (2, 'Lower Body', 1, 2),
 (3, 'Core / Back', 1, 3);
 
+-- Insert sections for Upper Body
+INSERT IGNORE INTO question_sections (id, area_id, section_name, display_order) VALUES
+(1, 1, 'MOBILITY',                 0),
+(2, 1, 'STRENGTH',                 1),
+(3, 1, 'ENDURANCE',                2),
+(4, 1, 'CONTROL & BALANCE',        3),
+(5, 1, 'FUNCTIONAL INDEPENDENCE',  4),
+(6, 1, 'CONFIDENCE & BODY TRUST',  5);
+
 -- C2: No default admin credentials. Use the CLI setup script to create the first admin:
 --   php artisan admin:create  (or run the equivalent setup script)
 -- Never commit real admin credentials to source control.

@@ -15,6 +15,7 @@ CREATE TABLE users (
     area_id INT,
     tutorial_done TINYINT(1) DEFAULT 0,
     is_graduated TINYINT(1) DEFAULT 0,
+    graduation_notes TEXT NULL,
     must_change_password TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (area_id) REFERENCES problem_areas(id) ON DELETE SET NULL
@@ -30,6 +31,16 @@ CREATE TABLE otps (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE question_sections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    area_id INT NOT NULL,
+    section_name VARCHAR(100) NOT NULL,
+    display_order TINYINT DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (area_id) REFERENCES problem_areas(id) ON DELETE CASCADE
+);
+
 CREATE TABLE questions (
     sno INT AUTO_INCREMENT PRIMARY KEY,
     question_text TEXT NOT NULL,
@@ -37,7 +48,9 @@ CREATE TABLE questions (
     rating_min TINYINT DEFAULT 1,
     rating_max TINYINT DEFAULT 5,
     flag TINYINT(1) DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    section_id INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (section_id) REFERENCES question_sections(id) ON DELETE SET NULL
 );
 
 CREATE TABLE question_area_map (
@@ -77,6 +90,8 @@ CREATE TABLE audit_windows (
     audit_type ENUM('mid_month','month_end') NOT NULL,
     audit_month TINYINT(2) NOT NULL,
     audit_year SMALLINT NOT NULL,
+    start_date DATE NULL,
+    end_date DATE NULL,
     is_open TINYINT(1) DEFAULT 1,
     opened_by INT,
     opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +112,9 @@ CREATE TABLE audit_sessions (
     status ENUM('in_progress','completed') NOT NULL,
     started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     completed_at DATETIME NULL,
+    admin_feedback TEXT NULL,
+    admin_feedback_by INT NULL,
+    admin_feedback_at DATETIME NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (audit_window_id) REFERENCES audit_windows(id) ON DELETE CASCADE,
     FOREIGN KEY (area_id) REFERENCES problem_areas(id) ON DELETE SET NULL,
@@ -142,16 +160,31 @@ CREATE TABLE client_feedback (
 
 CREATE TABLE admin_notifications (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    type ENUM('perfect_score','area_feedback') NOT NULL,
+    type ENUM('perfect_score','area_feedback','audit_completed','new_registration',
+              'team_created','team_updated','team_deactivated','team_feedback_saved',
+              'team_feedback_reviewed','team_area_changed','team_client_assigned') NOT NULL,
+    category ENUM('client','team') NOT NULL DEFAULT 'client',
     message VARCHAR(255) NOT NULL,
     related_user_id INT NULL,
     related_audit_session_id INT NULL,
     related_feedback_id INT NULL,
+    related_admin_id INT NULL,
     is_read TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (related_user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (related_audit_session_id) REFERENCES audit_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (related_feedback_id) REFERENCES client_feedback(id) ON DELETE CASCADE
+);
+
+CREATE TABLE audit_reminder_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    audit_window_id INT NOT NULL,
+    reminder_type ENUM('not_started','in_progress') NOT NULL,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (audit_window_id) REFERENCES audit_windows(id) ON DELETE CASCADE,
+    UNIQUE KEY user_window_type (user_id, audit_window_id, reminder_type)
 );
 
 CREATE TABLE admin_permissions (

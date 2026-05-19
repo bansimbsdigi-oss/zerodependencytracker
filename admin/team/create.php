@@ -18,6 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("INSERT INTO admin_users (name,email,password,role,created_by,is_active) VALUES (?,?,?,'team_member',?,1)")->execute([$name,$email,password_hash($password,PASSWORD_BCRYPT),$_SESSION['admin_id']]);
         $id = $pdo->lastInsertId();
         foreach (array_unique($perms) as $p) if (in_array($p, $allPerms, true)) $pdo->prepare("INSERT INTO admin_permissions (admin_user_id, permission) VALUES (?, ?)")->execute([$id, $p]);
+        // Admin creating a team member is always admin role — notify anyway as a client-side record
+        $pdo->prepare("INSERT INTO admin_notifications (type, category, message, related_admin_id) VALUES ('team_created','team',?,?)")
+            ->execute(["New team member created: $name ($email)", (int)$id]);
         flash('admin', 'Team member created.', 'success');
         redirect(APP_URL . '/admin/team/index.php');
     }

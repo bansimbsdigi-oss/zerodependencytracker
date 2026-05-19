@@ -47,20 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("UPDATE otps SET is_used = 1 WHERE id = ?")->execute([$validOtp->id]);
             unset($_SESSION['otp_attempts']);
 
-            // C3: Check if this user must set their own password before accessing the app.
-            $stmt = $pdo->prepare("SELECT must_change_password FROM users WHERE id = ?");
-            $stmt->execute([$userId]);
-            $mustChange = (bool)$stmt->fetchColumn();
-
             session_regenerate_id(true);
             $_SESSION['user_id'] = $userId;
-            unset($_SESSION['pending_user_id']);
-            unset($_SESSION['pending_mobile']);
-
-            if ($mustChange) {
-                $_SESSION['must_change_password'] = true;
-                redirect(APP_URL . '/set-password.php');
-            }
+            unset($_SESSION['pending_user_id'], $_SESSION['pending_mobile']);
 
             redirect(APP_URL . '/dashboard.php');
         } else {
@@ -107,7 +96,7 @@ $otpSentAt  = $lastOtpRow ? strtotime($lastOtpRow->created_at) : (time() - 60);
       <div class="auth-header">
         <div class="auth-logo" style="background:var(--gray-900);">&#x1F4AC;</div>
         <h2>Check WhatsApp</h2>
-        <p class="text-muted">A 6-digit code was sent to <strong><?= e($mobile) ?></strong></p>
+        <p class="text-muted">A 6-digit OTP was sent to your registered WhatsApp number <strong><?= e(maskMobile($mobile)) ?></strong></p>
       </div>
 
       <?php if ($error): ?>
@@ -137,6 +126,7 @@ $otpSentAt  = $lastOtpRow ? strtotime($lastOtpRow->created_at) : (time() - 60);
 
         <div class="text-center" style="margin-top: 1.5rem;">
           <p class="text-muted"><a href="<?= APP_URL ?>/login.php">Use a different number</a></p>
+
         </div>
       </form>
     </div>

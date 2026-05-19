@@ -13,6 +13,7 @@ services:
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
       APP_URL: ${APP_URL}
+      COMBOT_API_URL: ${COMBOT_API_URL}
       COMBOT_API_KEY: ${COMBOT_API_KEY}
       ADMIN_WHATSAPP: ${ADMIN_WHATSAPP}
 
@@ -25,7 +26,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/seed.sql

@@ -28,6 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($password) $pdo->prepare("UPDATE admin_users SET password=? WHERE id=?")->execute([password_hash($password,PASSWORD_BCRYPT),$id]);
         $pdo->prepare("DELETE FROM admin_permissions WHERE admin_user_id=?")->execute([$id]);
         foreach (array_unique($perms) as $p) if (in_array($p, $allPerms, true)) $pdo->prepare("INSERT INTO admin_permissions (admin_user_id, permission) VALUES (?, ?)")->execute([$id, $p]);
+        $notifType = $active ? 'team_updated' : 'team_deactivated';
+        $notifMsg  = $active ? "Team member updated: $name" : "Team member deactivated: $name";
+        $pdo->prepare("INSERT INTO admin_notifications (type, category, message, related_admin_id) VALUES (?, 'team', ?, ?)")
+            ->execute([$notifType, $notifMsg, $id]);
         flash('admin', 'Team member saved.', 'success');
         redirect(APP_URL . '/admin/team/index.php');
     }

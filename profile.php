@@ -125,21 +125,25 @@ $userInitial = strtoupper(substr($user->name ?? 'U', 0, 1));
   </style>
 </head>
 <body class="profile-page">
-  <header class="profile-topbar">
-    <div class="profile-topbar-inner">
-      <a href="<?= APP_URL ?>/dashboard.php" class="profile-brand">
-        <span class="profile-brand-mark">&#x2665;</span>
-        <span>PhysioTrack</span>
-      </a>
-      <nav class="profile-nav" aria-label="Primary">
+  <header class="site-header">
+    <div class="container">
+      <a href="<?= APP_URL ?>/dashboard.php" class="brand">&#x2665; Zero Dependency Tracker</a>
+      <div class="nav-links">
         <a href="<?= APP_URL ?>/dashboard.php">Dashboard</a>
-        <a href="<?= APP_URL ?>/profile.php" class="active">Profile</a>
-        <span class="profile-avatar"><?= e($userInitial) ?></span>
-        <form method="POST" action="<?= APP_URL ?>/logout.php" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="<?= e(getCsrf()) ?>">
-          <button type="submit" class="logout" style="border:0;background:#f3f4f6;cursor:pointer;font:inherit;display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 1rem;color:#374151;border-radius:999px;font-weight:700;">Logout</button>
-        </form>
-      </nav>
+        <div class="nav-avatar-wrap">
+          <button class="nav-avatar" id="navAvatarBtn" aria-label="Account menu" aria-expanded="false">
+            <?= e($userInitial) ?>
+          </button>
+          <div class="nav-dropdown" id="navDropdown">
+            <a href="<?= APP_URL ?>/profile.php" style="color:var(--primary);font-weight:600;">&#128100; Profile</a>
+            <hr>
+            <form method="POST" action="<?= APP_URL ?>/logout.php">
+              <input type="hidden" name="csrf_token" value="<?= e(getCsrf()) ?>">
+              <button type="submit">&#x2192; Logout</button>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 

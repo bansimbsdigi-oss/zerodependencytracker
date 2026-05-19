@@ -23,6 +23,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
+  // Nav avatar dropdown
+  const navAvatarBtn = document.getElementById('navAvatarBtn');
+  const navDropdown  = document.getElementById('navDropdown');
+  if (navAvatarBtn && navDropdown) {
+    navAvatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = navDropdown.classList.toggle('is-open');
+      navAvatarBtn.setAttribute('aria-expanded', open);
+    });
+    document.addEventListener('click', () => {
+      navDropdown.classList.remove('is-open');
+      navAvatarBtn.setAttribute('aria-expanded', 'false');
+    });
+    navDropdown.addEventListener('click', (e) => e.stopPropagation());
+  }
+
   // Setup tutorial completion
   const tutorialOverlay = document.getElementById('tutorial-overlay');
   if (tutorialOverlay) {

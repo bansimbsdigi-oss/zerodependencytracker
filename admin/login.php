@@ -173,9 +173,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       text-align: center;
     }
     @media (max-width: 860px) {
-      .admin-login-shell { grid-template-columns: 1fr; }
-      .admin-login-panel { gap: 3rem; padding: 2rem; }
-      .admin-login-main { padding: 1.25rem; }
+      .admin-login-shell {
+        grid-template-columns: 1fr;
+        background: #111827;
+        min-height: 100vh;
+      }
+      .admin-login-panel {
+        padding: 2rem 1.5rem 1.5rem;
+        justify-content: flex-start;
+        gap: 0;
+        border-right: none;
+        border-bottom: none;
+      }
+      .admin-login-brand { margin-bottom: 1.75rem; }
+      .admin-login-copy h1 { font-size: 1.75rem; }
+      .admin-login-points { margin-top: 1.25rem; gap: 0.6rem; }
+      /* Hide "Authorized administrators only" on mobile — shown inside card area */
+      .admin-login-panel > p:last-child { display: none; }
+      .admin-login-main {
+        background: #111827;
+        padding: 0 1.5rem 2.5rem;
+        align-items: stretch;
+        justify-content: flex-start;
+      }
+      .admin-login-card {
+        width: 100%;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .admin-login-panel { padding: 1.5rem 1.25rem 1.25rem; }
+      .admin-login-main  { padding: 0 1.25rem 2rem; }
     }
   </style>
 </head>
