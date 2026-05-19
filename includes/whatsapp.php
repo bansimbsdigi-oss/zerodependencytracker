@@ -114,6 +114,45 @@ function sendWhatsAppAuditReminder(string $mobile, string $firstName, string $au
 }
 
 /**
+ * Sends a coach feedback notification via the wp_audit_feedback template.
+ *
+ * Template variables (body components):
+ *   {{1}} — Client first name
+ *   {{2}} — Audit type label (Mid Month / Month End)
+ *   {{3}} — Month and year (e.g. May 2026)
+ *   {{4}} — Feedback text from coach
+ */
+function sendWhatsAppAuditFeedback(string $mobile, string $firstName, string $auditTypeLabel, string $auditMonthYear, string $feedbackText): bool {
+    $to = formatWhatsAppNumber($mobile);
+
+    $payload = [
+        'to'             => $to,
+        'recipient_type' => 'individual',
+        'type'           => 'template',
+        'template'       => [
+            'language'   => [
+                'policy' => 'deterministic',
+                'code'   => 'en',
+            ],
+            'name'       => 'wp_audit_feedback',
+            'components' => [
+                [
+                    'type'       => 'body',
+                    'parameters' => [
+                        ['type' => 'text', 'text' => $firstName],
+                        ['type' => 'text', 'text' => $auditTypeLabel],
+                        ['type' => 'text', 'text' => $auditMonthYear],
+                        ['type' => 'text', 'text' => $feedbackText],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    return _combotPost($payload);
+}
+
+/**
  * Sends a plain WhatsApp text message via the Combot Meta API.
  * Used for non-OTP messages (audit reminders, admin alerts, etc.)
  */

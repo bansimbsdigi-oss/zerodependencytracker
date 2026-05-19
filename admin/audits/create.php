@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
+require_once __DIR__ . '/../../includes/whatsapp.php';
 requirePermission('view_scores');
 $pdo = getDB();
 $errors = [];
@@ -23,7 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->prepare("INSERT INTO audit_windows (audit_type, audit_month, audit_year, start_date, end_date, opened_by, is_open) VALUES (?, ?, ?, ?, ?, ?, 1)")
                 ->execute([$type, $month, $year, $startDate, $endDate, $_SESSION['admin_id']]);
-            flash('admin', 'Audit window opened.', 'success');
+
+            // Send WhatsApp notification to all active clients
+            $auditTypeLabel = $type === 'mid_month' ? 'Mid Month' : 'Month End';
+            $auditMonthYear = date('F Y', mktime(0, 0, 0, $month, 1, $year));
+
+            $clients = $pdo->query("SELECT name, mobile FROM users WHERE is_graduated = 0 AND mobile <> ''")->fetchAll();
+            foreach ($clients as $client) {
+                $firstName = explode(' ', trim($client->name))[0] ?: 'there';
+                sendWhatsAppAuditReminder($client->mobile, $firstName, $auditTypeLabel, $auditMonthYear);
+            }
+
+            flash('admin', 'Audit window opened and clients notified on WhatsApp.', 'success');
             redirect(APP_URL . '/admin/audits/index.php');
         } catch (PDOException $e) {
             $errors[] = 'An audit window for that type/month/year already exists.';

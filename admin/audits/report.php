@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
+require_once __DIR__ . '/../../includes/whatsapp.php';
 requirePermission('view_scores');
 $pdo = getDB();
 
@@ -15,13 +16,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fbText = trim($_POST['admin_feedback'] ?? '');
     $pdo->prepare("UPDATE audit_sessions SET admin_feedback=?, admin_feedback_by=?, admin_feedback_at=NOW() WHERE id=?")
         ->execute([$fbText ?: null, $_SESSION['admin_id'], $sessionId]);
+
     if ($fbText) {
-        $clientNameRow = $pdo->prepare("SELECT name FROM users WHERE id=?");
-        $clientNameRow->execute([$clientId]);
-        $cname = $clientNameRow->fetchColumn();
-        teamNotify('team_feedback_saved', ($_SESSION['admin_name'] ?? 'Team member') . " saved coach feedback for client: $cname", $clientId, $sessionId);
+        // Fetch client and audit details for notification
+        $clientRow = $pdo->prepare("
+            SELECT u.name, u.mobile, aw.audit_type, aw.audit_month, aw.audit_year
+            FROM users u
+            JOIN audit_sessions aus ON aus.user_id = u.id
+            JOIN audit_windows aw ON aw.id = aus.audit_window_id
+            WHERE aus.id = ?
+        ");
+        $clientRow->execute([$sessionId]);
+        $clientData = $clientRow->fetch();
+
+        if ($clientData) {
+            $firstName      = explode(' ', trim($clientData->name))[0] ?: 'there';
+            $auditTypeLabel = $clientData->audit_type === 'mid_month' ? 'Mid Month' : 'Month End';
+            $auditMonthYear = date('F Y', mktime(0, 0, 0, (int)$clientData->audit_month, 1, (int)$clientData->audit_year));
+            sendWhatsAppAuditFeedback($clientData->mobile, $firstName, $auditTypeLabel, $auditMonthYear, $fbText);
+
+            teamNotify('team_feedback_saved', ($_SESSION['admin_name'] ?? 'Team member') . " saved coach feedback for client: {$clientData->name}", $clientId, $sessionId);
+        }
     }
-    flash('admin', 'Feedback saved and will be visible to the client.', 'success');
+
+    flash('admin', 'Feedback saved and client notified on WhatsApp.', 'success');
     redirect(APP_URL . '/admin/audits/report.php?session_id=' . $sessionId . '&client_id=' . $clientId);
 }
 
