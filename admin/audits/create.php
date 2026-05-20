@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $clients = $pdo->query("SELECT name, mobile FROM users WHERE is_graduated = 0 AND mobile <> ''")->fetchAll();
             foreach ($clients as $client) {
                 $firstName = explode(' ', trim($client->name))[0] ?: 'there';
-                sendWhatsAppAuditReminder($client->mobile, $firstName, $auditTypeLabel, $auditMonthYear);
+                sendWhatsAppAuditStartReminder($client->mobile, $firstName, $auditTypeLabel, $auditMonthYear);
             }
 
             flash('admin', 'Audit window opened and clients notified on WhatsApp.', 'success');

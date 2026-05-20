@@ -62,7 +62,7 @@ function sendAuditReminders(PDO $pdo) {
                 }
 
                 [$firstName, $auditLabel, $auditMonthYear] = getAuditReminderParams($user, $window);
-                if (!sendWhatsAppAuditReminder($user->mobile, $firstName, $auditLabel, $auditMonthYear)) {
+                if (!sendWhatsAppAuditStartReminder($user->mobile, $firstName, $auditLabel, $auditMonthYear)) {
                     $failedCount++;
                     continue;
                 }

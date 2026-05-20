@@ -76,15 +76,16 @@ function sendWhatsAppOTP(string $mobile, string $otp): bool {
     return _combotPost($payload);
 }
 
+
 /**
- * Sends an audit reminder via the wp_audit_reminder template.
+ * Sends an audit start reminder via the access__msg template.
  *
  * Template variables (body components):
  *   {{1}} — Client first name
  *   {{2}} — Audit type label (Mid Month / Month End)
  *   {{3}} — Month and year (e.g. May 2026)
  */
-function sendWhatsAppAuditReminder(string $mobile, string $firstName, string $auditTypeLabel, string $auditMonthYear): bool {
+function sendWhatsAppAuditStartReminder(string $mobile, string $firstName, string $auditTypeLabel, string $auditMonthYear): bool {
     $to = formatWhatsAppNumber($mobile);
 
     $payload = [
@@ -96,7 +97,7 @@ function sendWhatsAppAuditReminder(string $mobile, string $firstName, string $au
                 'policy' => 'deterministic',
                 'code'   => 'en',
             ],
-            'name'       => 'wp_audit_reminder',
+            'name'       => 'access__msg',
             'components' => [
                 [
                     'type'       => 'body',
@@ -134,15 +135,15 @@ function sendWhatsAppAuditFeedback(string $mobile, string $firstName, string $au
                 'policy' => 'deterministic',
                 'code'   => 'en',
             ],
-            'name'       => 'wp_audit_feedback',
+            'name'       => 'access__msg_fed',
             'components' => [
                 [
                     'type'       => 'body',
                     'parameters' => [
-                        ['type' => 'text', 'text' => $firstName],
-                        ['type' => 'text', 'text' => $auditTypeLabel],
-                        ['type' => 'text', 'text' => $auditMonthYear],
+                        ['type' => 'text', 'text' => ' ' . $firstName . ','],
+                        ['type' => 'text', 'text' => 'your coach has shared feedback on your ' . $auditTypeLabel . ' audit for ' . $auditMonthYear . ':'],
                         ['type' => 'text', 'text' => $feedbackText],
+                        ['type' => 'text', 'text' => 'Log in to Zero Dependency Tracker to view your full audit report. Happy Freedom!'],
                     ],
                 ],
             ],
