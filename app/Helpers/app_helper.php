@@ -85,24 +85,28 @@ if (!function_exists('getFlash')) {
 
 if (!function_exists('requireLogin')) {
     function requireLogin(): void {
-        if (empty($_SESSION['user_id'])) {
-            redirect(APP_URL . '/login');
+        // Use session()->get() so CI4 starts the session before reading user_id.
+        // header() + exit bypasses CI4's shutdown pipeline (same pattern as logout).
+        if (empty(session()->get('user_id'))) {
+            header('Location: ' . APP_URL . '/login');
+            exit;
         }
     }
 }
 
 if (!function_exists('currentUserId')) {
     function currentUserId(): ?int {
-        return isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+        $id = session()->get('user_id');
+        return $id ? (int)$id : null;
     }
 }
 
 if (!function_exists('getCurrentUser')) {
     function getCurrentUser(): ?object {
-        if (empty($_SESSION['user_id'])) return null;
+        if (empty(session()->get('user_id'))) return null;
         $pdo  = getDB();
         $stmt = $pdo->prepare('SELECT u.*, pa.area_name FROM users u LEFT JOIN problem_areas pa ON pa.id = u.area_id WHERE u.id = ?');
-        $stmt->execute([$_SESSION['user_id']]);
+        $stmt->execute([(int)session()->get('user_id')]);
         return $stmt->fetch() ?: null;
     }
 }

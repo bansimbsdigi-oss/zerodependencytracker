@@ -210,7 +210,8 @@ class Auth extends Controller
 
     public function logout()
     {
-        if ($this->request->getMethod() !== 'post') {
+        // CI4 4.4+ getMethod() returns uppercase ('POST', 'GET')
+        if (strtolower($this->request->getMethod()) !== 'post') {
             return redirect()->to(APP_URL . '/login');
         }
         // 1. Wipe session data so even if the file is re-written it has no auth keys

@@ -1,34 +1,37 @@
 <?php adminPageStart('Dashboard', 'dashboard'); ?>
 
 <div class="admin-stats-grid">
-  <div class="admin-stat-card">
+  <a class="admin-stat-card" href="<?= APP_URL ?>/admin/clients" style="text-decoration:none;cursor:pointer;" title="View all clients">
     <span class="admin-stat-icon" style="background:#ecfdf5;color:#059669;"><?= adminIcon('clients', 28) ?></span>
     <div><div class="admin-stat-value"><?= $totalClients ?></div><div class="admin-stat-label">Total Clients</div></div>
-  </div>
-  <div class="admin-stat-card">
+  </a>
+  <a class="admin-stat-card" href="<?= APP_URL ?>/admin/clients" style="text-decoration:none;cursor:pointer;" title="View graduated clients">
     <span class="admin-stat-icon" style="background:#ecfdf5;color:#059669;"><?= adminIcon('trophy', 28) ?></span>
     <div><div class="admin-stat-value"><?= $graduates ?></div><div class="admin-stat-label">Graduated</div></div>
-  </div>
-  <div class="admin-stat-card">
+  </a>
+  <a class="admin-stat-card" href="<?= APP_URL ?>/admin/audits" style="text-decoration:none;cursor:pointer;" title="View audit windows">
     <span class="admin-stat-icon" style="background:#fefce8;color:#ca8a04;"><?= adminIcon('audits', 28) ?></span>
     <div><div class="admin-stat-value"><?= $activeWindows ?></div><div class="admin-stat-label">Open Audit Windows</div></div>
-  </div>
-  <div class="admin-stat-card">
+  </a>
+  <a class="admin-stat-card" href="<?= APP_URL ?>/admin/notifications" style="text-decoration:none;cursor:pointer;" title="View notifications">
     <span class="admin-stat-icon" style="background:#f0f9ff;color:#0284c7;"><?= adminIcon('bell', 28) ?></span>
     <div><div class="admin-stat-value"><?= $unreadNotifications ?></div><div class="admin-stat-label">Unread Notifications</div></div>
-  </div>
+  </a>
   <div class="admin-stat-card">
     <span class="admin-stat-icon" style="background:#f5f3ff;color:#7c3aed;"><?= adminIcon('chart', 28) ?></span>
     <div><div class="admin-stat-value"><?= $auditsCompleted ?></div><div class="admin-stat-label">Audits Completed</div></div>
   </div>
-  <div class="admin-stat-card">
+  <a class="admin-stat-card" href="<?= APP_URL ?>/admin/team" style="text-decoration:none;cursor:pointer;" title="View team">
     <span class="admin-stat-icon" style="background:#fdf2f8;color:#db2777;"><?= adminIcon('team', 28) ?></span>
     <div><div class="admin-stat-value"><?= $activeTeamMembers ?></div><div class="admin-stat-label">Active Team<br>Members</div></div>
-  </div>
+  </a>
 </div>
 
 <div class="admin-actions-row">
   <a class="admin-action-btn primary" href="<?= APP_URL ?>/admin/audits/create"><?= adminIcon('plus', 16) ?> Open Audit Window</a>
+  <?php if (hasPermission('view_clients')): ?>
+    <a class="admin-action-btn primary" href="<?= APP_URL ?>/admin/clients"><?= adminIcon('clients', 16) ?> View Clients</a>
+  <?php endif; ?>
   <?php if (hasPermission('register_clients')): ?>
     <a class="admin-action-btn outline" href="<?= APP_URL ?>/admin/clients/create"><?= adminIcon('user', 16) ?> Add Client</a>
   <?php endif; ?>
@@ -41,7 +44,12 @@
 </div>
 
 <div class="admin-table-card">
-  <div class="admin-table-title">Recent Completed Audits</div>
+  <div class="admin-table-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>Recent Completed Audits</span>
+    <?php if (hasPermission('view_clients')): ?>
+      <a href="<?= APP_URL ?>/admin/clients" style="font-size:.82rem;font-weight:600;color:#0f8f83;text-decoration:none;">View All Clients →</a>
+    <?php endif; ?>
+  </div>
   <table class="table">
     <thead>
       <tr>

@@ -18,14 +18,15 @@ class QuestionsController extends Controller
         $grouped   = [];
         
         if ($filterAreaId) {
+            // Filter by question_area_map so mappings saved on the Mappings page
+            // are immediately reflected here. The section join is kept for grouping.
             $stmt = $pdo->prepare("
                 SELECT q.*, qs.section_name, qs.display_order AS sec_order,
                        COUNT(DISTINCT o.id) AS option_count
                 FROM questions q
+                JOIN question_area_map qam ON qam.question_id = q.sno AND qam.area_id = ?
                 LEFT JOIN question_sections qs ON qs.id = q.section_id
-                LEFT JOIN problem_areas pa ON pa.id = qs.area_id
                 LEFT JOIN options o ON o.question_id = q.sno
-                WHERE pa.id = ?
                 GROUP BY q.sno
                 ORDER BY qs.display_order, qs.id, q.sno
             ");

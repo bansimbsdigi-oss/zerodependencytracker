@@ -1,6 +1,6 @@
 Options -Indexes
 
-# ── Force HTTPS (enable on Hostinger after SSL is active) ────────────────────
+# ── Force HTTPS (uncomment ONLY after SSL certificate is active on Hostinger) ──
 # <IfModule mod_rewrite.c>
 #     RewriteCond %{HTTPS} off
 #     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
@@ -9,6 +9,27 @@ Options -Indexes
 # ── CI4 Front Controller Rewrite ─────────────────────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /zdt/
+
+    # ── Legacy .php URL redirects (old plain-PHP app links) ──────────────────
+    RewriteRule ^register\.php$          /zdt/register         [R=301,L]
+    RewriteRule ^login\.php$             /zdt/login            [R=301,L]
+    RewriteRule ^logout\.php$            /zdt/logout           [R=301,L]
+    RewriteRule ^otp-verify\.php$        /zdt/otp-verify       [R=301,L]
+    RewriteRule ^dashboard\.php$         /zdt/dashboard        [R=301,L]
+    RewriteRule ^audit\.php$             /zdt/audit            [R=301,L]
+    RewriteRule ^audit-report\.php$      /zdt/audit-report     [R=301,L]
+    RewriteRule ^profile\.php$           /zdt/profile          [R=301,L]
+    RewriteRule ^send_audit_reminders\.php$ /zdt/              [R=301,L]
+    RewriteRule ^admin/login\.php$       /zdt/admin/login      [R=301,L]
+    RewriteRule ^admin/logout\.php$      /zdt/admin/logout     [R=301,L]
+    RewriteRule ^admin/dashboard\.php$   /zdt/admin/dashboard  [R=301,L]
+    RewriteRule ^admin/clients/index\.php$  /zdt/admin/clients [R=301,L]
+    RewriteRule ^admin/clients/create\.php$ /zdt/admin/clients/create [R=301,L]
+    RewriteRule ^admin/audits/index\.php$   /zdt/admin/audits  [R=301,L]
+    RewriteRule ^admin/audits/create\.php$  /zdt/admin/audits/create [R=301,L]
+    RewriteRule ^admin/questions/index\.php$ /zdt/admin/questions [R=301,L]
+    RewriteRule ^admin/notifications/index\.php$ /zdt/admin/notifications [R=301,L]
 
     # Allow direct access to real files and directories (assets, etc.)
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -31,7 +52,7 @@ Options -Indexes
     php_value session.cookie_httponly 1
     php_value session.use_strict_mode 1
     php_value session.cookie_samesite Lax
-    php_flag  session.cookie_secure   Off
+    php_flag  session.cookie_secure   On
 </IfModule>
 
 <IfModule php8_module>
@@ -40,7 +61,7 @@ Options -Indexes
     php_value session.cookie_httponly 1
     php_value session.use_strict_mode 1
     php_value session.cookie_samesite Lax
-    php_flag  session.cookie_secure   Off
+    php_flag  session.cookie_secure   On
 </IfModule>
 
 # ── Security headers ─────────────────────────────────────────────────────────

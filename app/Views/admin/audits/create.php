@@ -12,8 +12,8 @@ $curYear  = (int)date('Y');
   <div class="form-group">
     <label class="form-label">Audit Type</label>
     <select class="form-control" name="audit_type">
-      <option value="mid_month"  <?= ($this->request->getPost('audit_type') ?? '') === 'mid_month'  ? 'selected' : '' ?>>Mid Month</option>
-      <option value="month_end"  <?= ($this->request->getPost('audit_type') ?? '') === 'month_end'  ? 'selected' : '' ?>>Month End</option>
+      <option value="mid_month"  <?= ($_POST['audit_type'] ?? '') === 'mid_month'  ? 'selected' : '' ?>>Mid Month</option>
+      <option value="month_end"  <?= ($_POST['audit_type'] ?? '') === 'month_end'  ? 'selected' : '' ?>>Month End</option>
     </select>
   </div>
 
@@ -26,25 +26,25 @@ $curYear  = (int)date('Y');
           foreach ($months as $i => $mName):
             $val = $i + 1;
         ?>
-          <option value="<?= $val ?>" <?= ((int)($this->request->getPost('audit_month') ?? $curMonth)) === $val ? 'selected' : '' ?>><?= $mName ?></option>
+          <option value="<?= $val ?>" <?= ((int)($_POST['audit_month'] ?? $curMonth)) === $val ? 'selected' : '' ?>><?= $mName ?></option>
         <?php endforeach; ?>
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Year</label>
-      <input class="form-control" type="number" name="audit_year" min="2020" max="2100" value="<?= e($this->request->getPost('audit_year') ?? $curYear) ?>">
+      <input class="form-control" type="number" name="audit_year" min="2020" max="2100" value="<?= e($_POST['audit_year'] ?? $curYear) ?>">
     </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
     <div class="form-group">
       <label class="form-label">Start Date <span style="color:#dc2626">*</span></label>
-      <input class="form-control" type="date" name="start_date" value="<?= e($this->request->getPost('start_date') ?? '') ?>" required>
+      <input class="form-control" type="date" name="start_date" value="<?= e($_POST['start_date'] ?? '') ?>" required>
       <span style="font-size:.8rem;color:#6b7280;margin-top:.3rem;display:block;">Clients can start the audit from this date.</span>
     </div>
     <div class="form-group">
       <label class="form-label">End Date <span style="color:#dc2626">*</span></label>
-      <input class="form-control" type="date" name="end_date" value="<?= e($this->request->getPost('end_date') ?? '') ?>" required>
+      <input class="form-control" type="date" name="end_date" value="<?= e($_POST['end_date'] ?? '') ?>" required>
       <span style="font-size:.8rem;color:#6b7280;margin-top:.3rem;display:block;">Clients cannot submit after this date.</span>
     </div>
   </div>
