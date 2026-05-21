@@ -1,4 +1,4 @@
--- Insert test problem areas
+﻿-- Insert test problem areas
 INSERT IGNORE INTO problem_areas (id, area_name, is_active, display_order) VALUES
 (1, 'Upper Body', 1, 1),
 (2, 'Lower Body', 1, 2),

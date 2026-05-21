@@ -1,0 +1,51 @@
+#--------------------------------------------------------------------
+# ENVIRONMENT
+# Set to 'production' on live server. Never use 'development' live.
+#--------------------------------------------------------------------
+
+CI_ENVIRONMENT = production
+
+#--------------------------------------------------------------------
+# APP
+#--------------------------------------------------------------------
+
+app.baseURL = 'https://yourdomain.com'
+app.appName = 'Zero Dependency Tracker'
+
+# Enforce HTTPS for session cookies on production
+app.forceGlobalSecureRequests = false
+
+# Session
+app.sessionDriver         = 'CodeIgniter\Session\Handlers\FileHandler'
+app.sessionCookieName     = 'ci_session'
+app.sessionExpiration     = 7200
+app.sessionSavePath       = WRITEPATH . 'session'
+app.sessionMatchIP        = false
+app.sessionTimeToUpdate   = 300
+app.sessionRegenerateDestroy = false
+
+# Cookie security
+app.cookieSecure   = true
+app.cookieHTTPOnly = true
+app.cookieSameSite = 'Lax'
+
+#--------------------------------------------------------------------
+# DATABASE
+# Hostinger MySQL credentials go here.
+#--------------------------------------------------------------------
+
+database.default.hostname = localhost
+database.default.database = your_db_name
+database.default.username = your_db_user
+database.default.password = your_db_password
+database.default.DBDriver = MySQLi
+database.default.DBPrefix =
+database.default.port     = 3306
+
+#--------------------------------------------------------------------
+# WHATSAPP / COMBOT META API
+#--------------------------------------------------------------------
+
+COMBOT_API_URL = https://crm.sabhibot.com/api/meta/v19.0/850901054776919/messages
+COMBOT_API_KEY =
+ADMIN_WHATSAPP = 919999999999

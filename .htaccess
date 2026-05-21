@@ -1,33 +1,42 @@
 Options -Indexes
 
-# Block direct access to sensitive files
-<FilesMatch "\.(env|sql|md|json|yml|yaml|lock|log|sh|gitignore|dockerignore)$">
+# ── Block all sensitive file types at root level ─────────────────────────────
+<FilesMatch "\.(php|sql|log|sh|env|md|yml|yaml|lock|gitignore|dockerignore)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Block access to config directory
+# ── Block direct access to sensitive directories ─────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Block config directory direct access
-    RewriteRule ^config/config\.php$ - [F,L]
-    RewriteRule ^\.env$ - [F,L]
+    # Block WordPress scanner paths
+    RewriteRule ^wp-login\.php$  - [F,L]
+    RewriteRule ^wp-admin/.*$    - [F,L]
+
+    # Block sensitive directories — deny direct access
+    RewriteRule ^app/.*$      - [F,L]
+    RewriteRule ^vendor/.*$   - [F,L]
+    RewriteRule ^writable/.*$ - [F,L]
     RewriteRule ^database/.*$ - [F,L]
-    RewriteRule ^Dockerfile$ - [F,L]
-    RewriteRule ^docker-compose.*$ - [F,L]
+    RewriteRule ^\.env$       - [F,L]
+    RewriteRule ^env$         - [F,L]
+    RewriteRule ^composer.*$  - [F,L]
+    RewriteRule ^Dockerfile$  - [F,L]
+    RewriteRule ^spark$       - [F,L]
+
+    # ── Route all web requests into public/ ──────────────────────────────────
+    # ONLY needed when Hostinger document root = project root (not recommended).
+    # If document root is set to public/ in Hostinger hPanel, DELETE rules below.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
 
-# PHP settings for shared hosting
-<IfModule mod_php.c>
-    php_value session.cookie_httponly 1
-    php_value session.use_strict_mode 1
-    php_flag session.cookie_secure Off
-</IfModule>
-
-# Security headers
+# ── Security headers ─────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Frame-Options         "SAMEORIGIN"
+    Header always set Referrer-Policy         "strict-origin-when-cross-origin"
 </IfModule>

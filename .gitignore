@@ -1,15 +1,15 @@
-# Sensitive configuration — never commit the real config
-config/config.php
-
-# Environment variables
+# Sensitive configuration files
 .env
 .env.local
+.env.production
 
-# Docker override files with secrets
-docker-compose.override.yml
-
-# Composer / vendor
+# Composer vendor directory
 vendor/
+
+# CodeIgniter writable directories (runtime data)
+writable/logs/
+writable/cache/
+writable/session/
 
 # OS / editor noise
 .DS_Store
@@ -18,3 +18,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Docker override files with secrets
+docker-compose.override.yml
+
+# Old legacy config (no longer exists, kept for safety)
+config/config.php
